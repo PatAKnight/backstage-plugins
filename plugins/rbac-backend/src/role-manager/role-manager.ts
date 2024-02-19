@@ -3,6 +3,7 @@ import { CatalogApi } from '@backstage/catalog-client';
 import { parseEntityRef } from '@backstage/catalog-model';
 
 import { RoleManager } from 'casbin';
+import { Knex } from 'knex';
 import { Logger } from 'winston';
 
 import { AncestorSearchMemo } from './ancestor-search-memo';
@@ -14,6 +15,7 @@ export class BackstageRoleManager implements RoleManager {
     private readonly catalogApi: CatalogApi,
     private readonly log: Logger,
     private readonly tokenManager: TokenManager,
+    private readonly catalogClient: Knex,
   ) {
     this.allRoles = new Map<string, RoleList>();
   }
@@ -96,6 +98,7 @@ export class BackstageRoleManager implements RoleManager {
       name1,
       this.tokenManager,
       this.catalogApi,
+      this.catalogClient,
     );
     await memo.getAllGroups();
     await memo.buildUserGraph(memo);
@@ -172,6 +175,7 @@ export class BackstageRoleManager implements RoleManager {
         name,
         this.tokenManager,
         this.catalogApi,
+        this.catalogClient,
       );
       await memo.getAllGroups();
       await memo.buildUserGraph(memo);

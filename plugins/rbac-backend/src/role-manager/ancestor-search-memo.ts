@@ -3,7 +3,13 @@ import { CatalogApi } from '@backstage/catalog-client';
 import { Entity } from '@backstage/catalog-model';
 
 import { alg, Graph } from '@dagrejs/graphlib';
+import { Knex } from 'knex';
 import { Logger } from 'winston';
+
+interface Relation {
+  source_entity_ref: string;
+  target_entity_ref: string;
+}
 
 // AncestorSearchMemo - should be used to build group hierarchy graph for User entity reference.
 // It supports search group entity reference link in the graph.
@@ -14,21 +20,26 @@ export class AncestorSearchMemo {
 
   private tokenManager: TokenManager;
   private catalogApi: CatalogApi;
+  private catalogClient: Knex;
 
   private userEntityRef: string;
 
   private allGroups: Entity[];
+  private allRelations: Relation[];
 
   constructor(
     userEntityRef: string,
     tokenManager: TokenManager,
     catalogApi: CatalogApi,
+    catalogClient: Knex,
   ) {
     this.graph = new Graph({ directed: true });
     this.userEntityRef = userEntityRef;
     this.tokenManager = tokenManager;
     this.catalogApi = catalogApi;
+    this.catalogClient = catalogClient;
     this.allGroups = [];
+    this.allRelations = [];
   }
 
   isAcyclic(): boolean {
@@ -64,16 +75,50 @@ export class AncestorSearchMemo {
     return this.graph.nodes();
   }
 
+  async getAllRelations(): Promise<Relation[]> {
+    try {
+      const rows = await this.catalogClient('relations')
+        .select('source_entity_ref', 'target_entity_ref')
+        .where('type', 'childOf')
+        .then();
+      return rows;
+    } catch (error) {
+      console.log(`error ${error}`);
+      return [];
+    }
+  }
+
   async getAllGroups(): Promise<void> {
-    const { token } = await this.tokenManager.getToken();
-    const { items } = await this.catalogApi.getEntities(
-      {
-        filter: { kind: 'Group' },
-        fields: ['metadata.name', 'metadata.namespace', 'spec.parent'],
-      },
-      { token },
-    );
-    this.allGroups = items;
+    try {
+      const rows = await this.catalogClient('relations')
+        .select('source_entity_ref', 'target_entity_ref')
+        .where('type', 'childOf')
+        .then();
+      this.allRelations = rows;
+    } catch (error) {
+      const { token } = await this.tokenManager.getToken();
+      const { items } = await this.catalogApi.getEntities(
+        {
+          filter: { kind: 'Group' },
+          fields: ['metadata.name', 'metadata.namespace', 'spec.parent'],
+        },
+        { token },
+      );
+      this.allGroups = items;
+    }
+  }
+
+  async getUserRelations(): Promise<Relation[]> {
+    try {
+      const rows = await this.catalogClient('relations')
+        .select('source_entity_ref', 'target_entity_ref')
+        .where({ type: 'memberOf', source_entity_ref: this.userEntityRef })
+        .then();
+      return rows;
+    } catch (error) {
+      console.log('error was thrown');
+      return [];
+    }
   }
 
   async getUserGroups(): Promise<Entity[]> {
@@ -93,7 +138,7 @@ export class AncestorSearchMemo {
     const groupName = `group:${group.metadata.namespace?.toLocaleLowerCase(
       'en-US',
     )}/${group.metadata.name.toLocaleLowerCase('en-US')}`;
-    if (!memo.hasEntityRef(group.metadata.name)) {
+    if (!memo.hasEntityRef(groupName)) {
       memo.setNode(groupName);
     }
 
@@ -113,8 +158,29 @@ export class AncestorSearchMemo {
     }
   }
 
+  traverseRelations(memo: AncestorSearchMemo, relation: Relation) {
+    if (!memo.hasEntityRef(relation.source_entity_ref)) {
+      memo.setNode(relation.source_entity_ref);
+    }
+
+    memo.setEdge(relation.target_entity_ref, relation.source_entity_ref);
+
+    const parentGroup = this.allRelations.find(
+      g => g.source_entity_ref === relation.target_entity_ref,
+    );
+
+    if (parentGroup && memo.isAcyclic()) {
+      this.traverseRelations(memo, parentGroup!);
+    }
+  }
+
   async buildUserGraph(memo: AncestorSearchMemo) {
-    const userGroups = await this.getUserGroups();
-    userGroups.forEach(group => this.traverseGroups(memo, group));
+    if (this.allGroups.length > 0) {
+      const userGroups = await this.getUserGroups();
+      userGroups.forEach(group => this.traverseGroups(memo, group));
+    } else {
+      const userRelations = await this.getUserRelations();
+      userRelations.forEach(group => this.traverseRelations(memo, group));
+    }
   }
 }
