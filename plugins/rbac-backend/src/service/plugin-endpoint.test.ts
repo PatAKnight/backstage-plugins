@@ -34,6 +34,7 @@ jest.mock('@backstage/backend-common', () => {
 });
 
 describe('plugin-endpoint', () => {
+  const fakeToken = 'fakeToken';
   const mockPluginEndpointDiscovery = {
     getBaseUrl: jest.fn().mockImplementation(async (pluginId: string) => {
       return `https://localhost:7007/api/${pluginId}`;
@@ -63,7 +64,7 @@ describe('plugin-endpoint', () => {
         config,
         logger,
       );
-      const policiesMetadata = await collector.getPluginPolicies();
+      const policiesMetadata = await collector.getPluginPolicies(fakeToken);
 
       expect(policiesMetadata.length).toEqual(0);
     });
@@ -82,7 +83,7 @@ describe('plugin-endpoint', () => {
         config,
         logger,
       );
-      const policiesMetadata = await collector.getPluginPolicies();
+      const policiesMetadata = await collector.getPluginPolicies(fakeToken);
 
       expect(policiesMetadata.length).toEqual(1);
       expect(policiesMetadata[0].pluginId).toEqual('permission');
@@ -112,7 +113,7 @@ describe('plugin-endpoint', () => {
         config,
         logger,
       );
-      const policiesMetadata = await collector.getPluginPolicies();
+      const policiesMetadata = await collector.getPluginPolicies(fakeToken);
 
       expect(policiesMetadata.length).toEqual(1);
       expect(policiesMetadata[0].pluginId).toEqual('permission');
@@ -151,7 +152,7 @@ describe('plugin-endpoint', () => {
         config,
         logger,
       );
-      const policiesMetadata = await collector.getPluginPolicies();
+      const policiesMetadata = await collector.getPluginPolicies(fakeToken);
 
       expect(policiesMetadata.length).toEqual(1);
       expect(policiesMetadata[0].pluginId).toEqual('permission');
@@ -190,7 +191,7 @@ describe('plugin-endpoint', () => {
         config,
         logger,
       );
-      await expect(collector.getPluginPolicies()).rejects.toThrow(
+      await expect(collector.getPluginPolicies(fakeToken)).rejects.toThrow(
         'Unexpected error',
       );
     });
@@ -206,7 +207,8 @@ describe('plugin-endpoint', () => {
         config,
         logger,
       );
-      const conditionRulesMetadata = await collector.getPluginConditionRules();
+      const conditionRulesMetadata =
+        await collector.getPluginConditionRules(fakeToken);
 
       expect(conditionRulesMetadata.length).toEqual(0);
     });
@@ -225,7 +227,8 @@ describe('plugin-endpoint', () => {
         config,
         logger,
       );
-      const conditionRulesMetadata = await collector.getPluginConditionRules();
+      const conditionRulesMetadata =
+        await collector.getPluginConditionRules(fakeToken);
 
       expect(conditionRulesMetadata.length).toEqual(1);
       expect(conditionRulesMetadata[0].pluginId).toEqual('catalog');
