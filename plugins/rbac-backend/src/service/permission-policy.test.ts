@@ -767,7 +767,6 @@ describe('RBACPermissionPolicy Tests', () => {
         config,
         enfDelegate,
         roleMetadataStorageTest,
-        policyMetadataStorageTest,
       );
 
       catalogApiMock.getEntities.mockReturnValue({ items: [] });
@@ -1040,7 +1039,6 @@ describe('RBACPermissionPolicy Tests', () => {
         config,
         enfDelegate,
         roleMetadataStorageTest,
-        policyMetadataStorageTest,
       );
     });
 
@@ -1131,18 +1129,6 @@ describe('Policy checks for resourced permissions defined by name', () => {
     updateRoleMetadata: jest.fn().mockImplementation(),
     removeRoleMetadata: jest.fn().mockImplementation(),
   };
-  const policyMetadataStorageTest: PolicyMetadataStorage = {
-    findPolicyMetadataBySource: jest
-      .fn()
-      .mockImplementation(
-        async (_source: Source): Promise<PermissionPolicyMetadataDao[]> => {
-          return [];
-        },
-      ),
-    findPolicyMetadata: jest.fn().mockImplementation(),
-    createPolicyMetadata: jest.fn().mockImplementation(),
-    removePolicyMetadata: jest.fn().mockImplementation(),
-  };
   let enfDelegate: EnforcerDelegate;
   let policy: RBACPermissionPolicy;
 
@@ -1154,7 +1140,6 @@ describe('Policy checks for resourced permissions defined by name', () => {
       config,
       enfDelegate,
       roleMetadataStorageTest,
-      policyMetadataStorageTest,
     );
   });
 

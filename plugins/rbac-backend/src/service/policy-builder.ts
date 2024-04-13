@@ -91,7 +91,6 @@ export class PolicyBuilder {
         conditionStorage,
         enforcerDelegate,
         roleMetadataStorage,
-        policyMetadataStorage,
         knex,
       ),
     };

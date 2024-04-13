@@ -111,7 +111,7 @@ export function validateEntityReference(
   return undefined;
 }
 
-async function validateGroupingPolicy(
+export async function validateGroupingPolicy(
   groupPolicy: string[],
   preDefinedPoliciesFile: string,
   roleMetadataStorage: RoleMetadataStorage,

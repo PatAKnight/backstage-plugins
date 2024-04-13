@@ -1,6 +1,6 @@
 import { NotAllowedError, NotFoundError } from '@backstage/errors';
 
-import { Enforcer, newEnforcer, newModelFromString } from 'casbin';
+import { Adapter, Enforcer, newModelFromString } from 'casbin';
 import { Knex } from 'knex';
 
 import {
@@ -579,22 +579,25 @@ export class EnforcerDelegate {
     entityRef: string,
     resourceType: string,
     action: string,
+    roles: string[],
   ): Promise<boolean> {
-    const filter = [
-      {
-        ptype: 'p',
-        v1: resourceType,
-        v2: action,
-      },
-      {
-        ptype: 'g',
-        v0: entityRef,
-      },
-    ];
+    const filter = [];
+    if (roles.length > 0) {
+      roles.forEach(role =>
+        filter.push({ ptype: 'p', v0: role, v1: resourceType, v2: action }),
+      );
+    } else {
+      filter.push({ ptype: 'p', v1: resourceType, v2: action });
+    }
 
     const adapt = this.enforcer.getAdapter();
     const roleManager = this.enforcer.getRoleManager();
-    const tempEnforcer = await newEnforcer(newModelFromString(MODEL), adapt);
+    const tempEnforcer = new Enforcer();
+    await tempEnforcer.initWithModelAndAdapter(
+      newModelFromString(MODEL),
+      adapt,
+      true,
+    );
     tempEnforcer.setRoleManager(roleManager);
 
     await tempEnforcer.loadFilteredPolicy(filter);
@@ -676,6 +679,10 @@ export class EnforcerDelegate {
 
   async getAllRoles(): Promise<string[]> {
     return this.enforcer.getAllRoles();
+  }
+
+  getAdapter(): Adapter {
+    return this.enforcer.getAdapter();
   }
 
   private mergeMetadata(

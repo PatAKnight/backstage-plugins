@@ -23,16 +23,11 @@ import {
 } from '@janus-idp/backstage-plugin-rbac-common';
 
 import { ConditionalStorage } from '../database/conditional-storage';
-import { PolicyMetadataStorage } from '../database/policy-metadata-storage';
 import {
   RoleMetadataDao,
   RoleMetadataStorage,
 } from '../database/role-metadata';
-import {
-  addPermissionPoliciesFileData,
-  loadFilteredCSV,
-  removedOldPermissionPoliciesFileData,
-} from '../file-permissions/csv';
+import { CSVFileWatcher } from '../file-permissions/csv-file-watcher';
 import { metadataStringToPolicy, removeTheDifference } from '../helper';
 import { EnforcerDelegate } from './enforcer-delegate';
 import { validateEntityReference } from './policies-validation';
@@ -169,9 +164,6 @@ export class RBACPermissionPolicy implements PermissionPolicy {
   private readonly enforcer: EnforcerDelegate;
   private readonly logger: Logger;
   private readonly conditionStorage: ConditionalStorage;
-  private readonly policyMetadataStorage: PolicyMetadataStorage;
-  private readonly policiesFile?: string;
-  private readonly allowReload?: boolean;
   private readonly superUserList?: string[];
 
   public static async build(
@@ -180,7 +172,6 @@ export class RBACPermissionPolicy implements PermissionPolicy {
     conditionalStorage: ConditionalStorage,
     enforcerDelegate: EnforcerDelegate,
     roleMetadataStorage: RoleMetadataStorage,
-    policyMetaDataStorage: PolicyMetadataStorage,
     knex: Knex,
   ): Promise<RBACPermissionPolicy> {
     const superUserList: string[] = [];
@@ -224,24 +215,24 @@ export class RBACPermissionPolicy implements PermissionPolicy {
       );
     }
 
+    const csvFile = new CSVFileWatcher(
+      enforcerDelegate,
+      logger,
+      roleMetadataStorage,
+    );
+
     if (policiesFile) {
-      await addPermissionPoliciesFileData(
-        policiesFile,
-        enforcerDelegate,
-        roleMetadataStorage,
-        logger,
-      );
-    } else {
-      await removedOldPermissionPoliciesFileData(enforcerDelegate);
+      await csvFile.initialize(policiesFile);
+    }
+
+    if (allowReload && policiesFile) {
+      csvFile.watchFile();
     }
 
     return new RBACPermissionPolicy(
       enforcerDelegate,
       logger,
       conditionalStorage,
-      policyMetaDataStorage,
-      policiesFile,
-      allowReload,
       superUserList,
     );
   }
@@ -250,17 +241,11 @@ export class RBACPermissionPolicy implements PermissionPolicy {
     enforcer: EnforcerDelegate,
     logger: Logger,
     conditionStorage: ConditionalStorage,
-    policyMetadataStorage: PolicyMetadataStorage,
-    policiesFile?: string,
-    allowReload?: boolean,
     superUserList?: string[],
   ) {
     this.enforcer = enforcer;
     this.logger = logger;
     this.conditionStorage = conditionStorage;
-    this.policyMetadataStorage = policyMetadataStorage;
-    this.policiesFile = policiesFile;
-    this.allowReload = allowReload;
     this.superUserList = superUserList;
   }
 
@@ -284,6 +269,7 @@ export class RBACPermissionPolicy implements PermissionPolicy {
 
       const userEntityRef = identityResp.identity.userEntityRef;
       const permissionName = request.permission.name;
+      const roles = await this.enforcer.getRolesForUser(userEntityRef);
 
       if (isResourcePermission(request.permission)) {
         const resourceType = request.permission.resourceType;
@@ -295,6 +281,7 @@ export class RBACPermissionPolicy implements PermissionPolicy {
             resourceType,
             request.permission.name,
             action,
+            roles,
           );
           if (conditionResult) {
             return conditionResult;
@@ -311,10 +298,15 @@ export class RBACPermissionPolicy implements PermissionPolicy {
         // Let's set up higher priority for permission specified by name, than by resource type
         const obj = hasNamedPermission ? permissionName : resourceType;
 
-        status = await this.isAuthorized(userEntityRef, obj, action);
+        status = await this.isAuthorized(userEntityRef, obj, action, roles);
       } else {
         // handle permission with 'basic' type
-        status = await this.isAuthorized(userEntityRef, permissionName, action);
+        status = await this.isAuthorized(
+          userEntityRef,
+          permissionName,
+          action,
+          roles,
+        );
       }
 
       const result = status ? AuthorizeResult.ALLOW : AuthorizeResult.DENY;
@@ -357,23 +349,13 @@ export class RBACPermissionPolicy implements PermissionPolicy {
     userIdentity: string,
     permission: string,
     action: string,
+    roles: string[],
   ): Promise<boolean> => {
     if (this.superUserList!.includes(userIdentity)) {
       return true;
     }
 
-    const filter: string[] = [userIdentity, permission, action];
-    if (this.policiesFile && this.allowReload) {
-      await loadFilteredCSV(
-        this.policiesFile,
-        this.enforcer,
-        filter,
-        this.logger,
-        this.policyMetadataStorage,
-      );
-    }
-
-    return await this.enforcer.enforce(userIdentity, permission, action);
+    return await this.enforcer.enforce(userIdentity, permission, action, roles);
   };
 
   private async handleConditions(
@@ -381,9 +363,8 @@ export class RBACPermissionPolicy implements PermissionPolicy {
     resourceType: string,
     permissionName: string,
     action: PermissionAction,
+    roles: string[],
   ): Promise<PolicyDecision | undefined> {
-    const roles = await this.enforcer.getRolesForUser(userEntityRef);
-
     const conditions: PermissionCriteria<
       PermissionCondition<string, PermissionRuleParams>
     >[] = [];
