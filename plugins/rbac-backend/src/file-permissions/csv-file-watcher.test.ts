@@ -1,16 +1,5 @@
-import type { LoggerService } from '@backstage/backend-plugin-api';
-import { mockServices } from '@backstage/backend-test-utils';
-import type { Config } from '@backstage/config';
-
-import {
-  Adapter,
-  Enforcer,
-  Model,
-  newEnforcer,
-  newModelFromString,
-} from 'casbin';
+import { newModelFromString } from 'casbin';
 import * as Knex from 'knex';
-import { MockClient } from 'knex-mock-client';
 
 import type { Source } from '@janus-idp/backstage-plugin-rbac-common';
 
@@ -18,18 +7,15 @@ import { resolve } from 'path';
 
 import {
   auditLoggerMock,
-  catalogApiMock,
   csvPermFile,
-  mockAuthService,
   mockClientKnex,
   mockLoggerService,
   modifiedBy,
   roleMetadataStorageMock,
 } from '../../__fixtures__/mock-utils';
+import { createEnforcer, newConfig } from '../../__fixtures__/test-utils';
 import { ADMIN_ROLE_AUTHOR } from '../admin-permissions/admin-creation';
-import { CasbinDBAdapterFactory } from '../database/casbin-adapter-factory';
 import { RoleMetadataDao } from '../database/role-metadata';
-import { BackstageRoleManager } from '../role-manager/role-manager';
 import { EnforcerDelegate } from '../service/enforcer-delegate';
 import { MODEL } from '../service/permission-model';
 import { CSVFileWatcher } from './csv-file-watcher';
@@ -120,13 +106,8 @@ describe('CSVFileWatcher', () => {
 
     const config = newConfig();
 
-    const adapter = await new CasbinDBAdapterFactory(
-      config,
-      mockClientKnex,
-    ).createAdapter();
-
     const stringModel = newModelFromString(MODEL);
-    const enf = await createEnforcer(stringModel, adapter, mockLoggerService);
+    const enf = await createEnforcer(stringModel, mockLoggerService, config);
 
     enforcerDelegate = new EnforcerDelegate(
       enf,
@@ -652,62 +633,3 @@ describe('CSVFileWatcher', () => {
     });
   });
 });
-
-async function createEnforcer(
-  theModel: Model,
-  adapter: Adapter,
-  logger: LoggerService,
-): Promise<Enforcer> {
-  const catalogDBClient = Knex.knex({ client: MockClient });
-  const rbacDBClient = Knex.knex({ client: MockClient });
-  const enf = await newEnforcer(theModel, adapter);
-
-  const config = newConfig();
-
-  const rm = new BackstageRoleManager(
-    catalogApiMock,
-    logger,
-    catalogDBClient,
-    rbacDBClient,
-    config,
-    mockAuthService,
-  );
-  enf.setRoleManager(rm);
-  enf.enableAutoBuildRoleLinks(false);
-  await enf.buildRoleLinks();
-
-  return enf;
-}
-
-function newConfig(
-  users?: Array<{ name: string }>,
-  superUsers?: Array<{ name: string }>,
-): Config {
-  const testUsers = [
-    {
-      name: 'user:default/guest',
-    },
-    {
-      name: 'group:default/guests',
-    },
-  ];
-
-  return mockServices.rootConfig({
-    data: {
-      permission: {
-        rbac: {
-          admin: {
-            users: users || testUsers,
-            superUsers: superUsers,
-          },
-        },
-      },
-      backend: {
-        database: {
-          client: 'better-sqlite3',
-          connection: ':memory:',
-        },
-      },
-    },
-  });
-}

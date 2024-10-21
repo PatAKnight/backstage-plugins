@@ -1,8 +1,6 @@
 import type { LoggerService } from '@backstage/backend-plugin-api';
-import { mockServices } from '@backstage/backend-test-utils';
 import type { CatalogApi } from '@backstage/catalog-client';
 import type { Entity } from '@backstage/catalog-model';
-import { Config } from '@backstage/config';
 
 import * as Knex from 'knex';
 import { createTracker, MockClient, Tracker } from 'knex-mock-client';
@@ -12,6 +10,7 @@ import {
   mockAuthService,
   mockLoggerService,
 } from '../../__fixtures__/mock-utils';
+import { newConfig } from '../../__fixtures__/test-utils';
 import { BackstageRoleManager } from '../role-manager/role-manager';
 
 describe('BackstageRoleManager', () => {
@@ -44,7 +43,7 @@ describe('BackstageRoleManager', () => {
     it('should throw an error whenever max depth is less than 0', () => {
       let expectedError;
       let errorRoleManager;
-      const config = newConfig(-1);
+      const config = newConfig(undefined, undefined, undefined, -1);
 
       try {
         errorRoleManager = new BackstageRoleManager(
@@ -336,7 +335,7 @@ describe('BackstageRoleManager', () => {
     //
     it('should disable group inheritance when max-depth=0', async () => {
       // max-depth=0
-      const config = newConfig(0);
+      const config = newConfig(undefined, undefined, undefined, 0);
       const rm = new BackstageRoleManager(
         catalogApiMock as CatalogApi,
         mockLoggerService as LoggerService,
@@ -1081,7 +1080,7 @@ describe('BackstageRoleManager', () => {
     //               user:default/mike -------------------|---------------------------------|
     //
     it('should return false for hasLink, when user:default/mike inherits role from group tree with group:default/team-e, complex tree, maxDepth of 3', async () => {
-      const config = newConfig(1);
+      const config = newConfig(undefined, undefined, undefined, 1);
 
       const roleManagerMaxDepth = new BackstageRoleManager(
         catalogApiMock as CatalogApi,
@@ -1718,38 +1717,3 @@ describe('BackstageRoleManager', () => {
     return entity;
   }
 });
-
-function newConfig(
-  maxDepth?: number,
-  users?: Array<{ name: string }>,
-  superUsers?: Array<{ name: string }>,
-): Config {
-  const testUsers = [
-    {
-      name: 'user:default/guest',
-    },
-    {
-      name: 'group:default/guests',
-    },
-  ];
-
-  return mockServices.rootConfig({
-    data: {
-      permission: {
-        rbac: {
-          admin: {
-            users: users || testUsers,
-            superUsers: superUsers,
-          },
-          maxDepth,
-        },
-      },
-      backend: {
-        database: {
-          client: 'better-sqlite3',
-          connection: ':memory:',
-        },
-      },
-    },
-  });
-}

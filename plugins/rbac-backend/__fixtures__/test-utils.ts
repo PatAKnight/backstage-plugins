@@ -2,13 +2,7 @@ import type { LoggerService } from '@backstage/backend-plugin-api';
 import { mockServices } from '@backstage/backend-test-utils';
 import { Config } from '@backstage/config';
 
-import {
-  Adapter,
-  Enforcer,
-  Model,
-  newEnforcer,
-  newModelFromString,
-} from 'casbin';
+import { Enforcer, Model, newEnforcer, newModelFromString } from 'casbin';
 import * as Knex from 'knex';
 import { MockClient } from 'knex-mock-client';
 
@@ -34,6 +28,7 @@ export function newConfig(
   permFile?: string,
   users?: Array<{ name: string }>,
   superUsers?: Array<{ name: string }>,
+  maxDepth?: number,
 ): Config {
   const testUsers = [
     {
@@ -54,6 +49,7 @@ export function newConfig(
             users: users || testUsers,
             superUsers: superUsers,
           },
+          maxDepth,
         },
       },
       backend: {
@@ -66,19 +62,15 @@ export function newConfig(
   });
 }
 
-export async function newAdapter(config: Config): Promise<Adapter> {
-  return await new CasbinDBAdapterFactory(
-    config,
-    mockClientKnex,
-  ).createAdapter();
-}
-
 export async function createEnforcer(
   theModel: Model,
-  adapter: Adapter,
   logger: LoggerService,
   config: Config,
 ): Promise<Enforcer> {
+  const adapter = await new CasbinDBAdapterFactory(
+    config,
+    mockClientKnex,
+  ).createAdapter();
   const catalogDBClient = Knex.knex({ client: MockClient });
   const rbacDBClient = Knex.knex({ client: MockClient });
   const enf = await newEnforcer(theModel, adapter);
@@ -99,7 +91,6 @@ export async function createEnforcer(
 }
 
 export async function newEnforcerDelegate(
-  adapter: Adapter,
   config: Config,
   storedPolicies?: string[][],
   storedGroupingPolicies?: string[][],
@@ -107,7 +98,7 @@ export async function newEnforcerDelegate(
   const theModel = newModelFromString(MODEL);
   const logger = mockServices.logger.mock();
 
-  const enf = await createEnforcer(theModel, adapter, logger, config);
+  const enf = await createEnforcer(theModel, logger, config);
 
   if (storedPolicies) {
     await enf.addPolicies(storedPolicies);

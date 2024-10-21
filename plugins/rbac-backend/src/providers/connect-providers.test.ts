@@ -1,30 +1,19 @@
-import type { LoggerService } from '@backstage/backend-plugin-api';
 import { mockServices } from '@backstage/backend-test-utils';
 
-import {
-  Adapter,
-  Enforcer,
-  Model,
-  newEnforcer,
-  newModelFromString,
-} from 'casbin';
+import { newModelFromString } from 'casbin';
 import * as Knex from 'knex';
-import { MockClient } from 'knex-mock-client';
 
 import type { RBACProviderConnection } from '@janus-idp/backstage-plugin-rbac-node';
 
 import {
   auditLoggerMock,
-  catalogApiMock,
-  mockAuthService,
   mockClientKnex,
   mockLoggerService,
   providerMock,
   roleMetadataStorageMock,
 } from '../../__fixtures__/mock-utils';
-import { CasbinDBAdapterFactory } from '../database/casbin-adapter-factory';
+import { createEnforcer } from '../../__fixtures__/test-utils';
 import { RoleMetadataDao } from '../database/role-metadata';
-import { BackstageRoleManager } from '../role-manager/role-manager';
 import { EnforcerDelegate } from '../service/enforcer-delegate';
 import { MODEL } from '../service/permission-model';
 import { Connection, connectRBACProviders } from './connect-providers';
@@ -120,13 +109,9 @@ describe('Connection', () => {
 
   beforeEach(async () => {
     const id = 'test';
-    const adapter = await new CasbinDBAdapterFactory(
-      config,
-      mockClientKnex,
-    ).createAdapter();
 
     const stringModel = newModelFromString(MODEL);
-    const enf = await createEnforcer(stringModel, adapter, mockLoggerService);
+    const enf = await createEnforcer(stringModel, mockLoggerService, config);
 
     enforcerDelegate = new EnforcerDelegate(
       enf,
@@ -412,13 +397,8 @@ describe('connectRBACProviders', () => {
   it('should initialize rbac providers', async () => {
     connectSpy = jest.spyOn(providerMock, 'connect');
 
-    const adapter = await new CasbinDBAdapterFactory(
-      config,
-      mockClientKnex,
-    ).createAdapter();
-
     const stringModel = newModelFromString(MODEL);
-    const enf = await createEnforcer(stringModel, adapter, mockLoggerService);
+    const enf = await createEnforcer(stringModel, mockLoggerService, config);
 
     const enforcerDelegate = new EnforcerDelegate(
       enf,
@@ -437,27 +417,3 @@ describe('connectRBACProviders', () => {
     expect(connectSpy).toHaveBeenCalled();
   });
 });
-
-async function createEnforcer(
-  theModel: Model,
-  adapter: Adapter,
-  logger: LoggerService,
-): Promise<Enforcer> {
-  const catalogDBClient = Knex.knex({ client: MockClient });
-  const rbacDBClient = Knex.knex({ client: MockClient });
-  const enf = await newEnforcer(theModel, adapter);
-
-  const rm = new BackstageRoleManager(
-    catalogApiMock,
-    logger,
-    catalogDBClient,
-    rbacDBClient,
-    config,
-    mockAuthService,
-  );
-  enf.setRoleManager(rm);
-  enf.enableAutoBuildRoleLinks(false);
-  await enf.buildRoleLinks();
-
-  return enf;
-}

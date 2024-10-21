@@ -13,7 +13,6 @@ import {
   roleMetadataStorageMock,
 } from '../../__fixtures__/mock-utils';
 import {
-  newAdapter,
   newConfig,
   newEnforcerDelegate,
   newPermissionPolicy,
@@ -81,9 +80,8 @@ describe('Admin Creation', () => {
         );
 
       config = newConfig(csvPermFile, admins, superUser);
-      const adapter = await newAdapter(config);
 
-      enfDelegate = await newEnforcerDelegate(adapter, config);
+      enfDelegate = await newEnforcerDelegate(config);
 
       await enfDelegate.addGroupingPolicy(oldGroupPolicy, {
         source: 'configuration',
