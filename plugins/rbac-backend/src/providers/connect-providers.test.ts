@@ -11,113 +11,74 @@ import {
 import * as Knex from 'knex';
 import { MockClient } from 'knex-mock-client';
 
-import type {
-  RBACProvider,
-  RBACProviderConnection,
-} from '@janus-idp/backstage-plugin-rbac-node';
+import type { RBACProviderConnection } from '@janus-idp/backstage-plugin-rbac-node';
 
-import { CasbinDBAdapterFactory } from '../database/casbin-adapter-factory';
 import {
-  RoleMetadataDao,
-  RoleMetadataStorage,
-} from '../database/role-metadata';
+  auditLoggerMock,
+  catalogApiMock,
+  mockAuthService,
+  mockClientKnex,
+  mockLoggerService,
+  providerMock,
+  roleMetadataStorageMock,
+} from '../../__fixtures__/mock-utils';
+import { CasbinDBAdapterFactory } from '../database/casbin-adapter-factory';
+import { RoleMetadataDao } from '../database/role-metadata';
 import { BackstageRoleManager } from '../role-manager/role-manager';
 import { EnforcerDelegate } from '../service/enforcer-delegate';
 import { MODEL } from '../service/permission-model';
 import { Connection, connectRBACProviders } from './connect-providers';
 
-const mockLoggerService = mockServices.logger.mock();
-
-const roleMetadataStorageMock: RoleMetadataStorage = {
-  filterRoleMetadata: jest
-    .fn()
-    .mockImplementation(
-      async (
-        _roleEntityRef: string,
-        _trx: Knex.Knex.Transaction,
-      ): Promise<RoleMetadataDao[]> => {
-        return [
-          {
-            roleEntityRef: 'role:default/old-provider-role',
-            source: 'test',
-            modifiedBy: 'test',
-          },
-          {
-            roleEntityRef: 'role:default/existing-provider-role',
-            source: 'test',
-            modifiedBy: 'test',
-          },
-        ];
-      },
-    ),
-  findRoleMetadata: jest
-    .fn()
-    .mockImplementation(
-      async (
-        roleEntityRef: string,
-        _trx: Knex.Knex.Transaction,
-      ): Promise<RoleMetadataDao | undefined> => {
-        if (roleEntityRef === 'role:default/old-provider-role') {
-          return {
-            roleEntityRef: 'role:default/old-provider-role',
-            source: 'test',
-            modifiedBy: 'test',
-          };
-        } else if (roleEntityRef === 'role:default/existing-provider-role') {
-          return {
-            roleEntityRef: 'role:default/existing-provider-role',
-            source: 'test',
-            modifiedBy: 'test',
-          };
-        } else if (roleEntityRef === 'role:default/csv-role') {
-          return {
-            roleEntityRef: 'role:default/csv-role',
-            source: 'csv-file',
-            modifiedBy: 'csv-file',
-          };
-        }
-        return undefined;
-      },
-    ),
-  createRoleMetadata: jest.fn().mockImplementation(),
-  updateRoleMetadata: jest.fn().mockImplementation(),
-  removeRoleMetadata: jest.fn().mockImplementation(),
-};
-
-const auditLoggerMock = {
-  getActorId: jest.fn().mockImplementation(),
-  createAuditLogDetails: jest.fn().mockImplementation(),
-  auditLog: jest.fn().mockImplementation(() => Promise.resolve()),
-};
-
-// TODO: Move to 'catalogServiceMock' from '@backstage/plugin-catalog-node/testUtils'
-// once '@backstage/plugin-catalog-node' is upgraded
-const catalogApiMock = {
-  getEntityAncestors: jest.fn().mockImplementation(),
-  getLocationById: jest.fn().mockImplementation(),
-  getEntities: jest.fn().mockImplementation(),
-  getEntitiesByRefs: jest.fn().mockImplementation(),
-  queryEntities: jest.fn().mockImplementation(),
-  getEntityByRef: jest.fn().mockImplementation(),
-  refreshEntity: jest.fn().mockImplementation(),
-  getEntityFacets: jest.fn().mockImplementation(),
-  addLocation: jest.fn().mockImplementation(),
-  getLocationByRef: jest.fn().mockImplementation(),
-  removeLocationById: jest.fn().mockImplementation(),
-  removeEntityByUid: jest.fn().mockImplementation(),
-  validateEntity: jest.fn().mockImplementation(),
-  getLocationByEntity: jest.fn().mockImplementation(),
-};
-
-const mockAuthService = mockServices.auth();
-
-const mockClientKnex = Knex.knex({ client: MockClient });
-
-const providerMock: RBACProvider = {
-  getProviderName: jest.fn().mockImplementation(),
-  connect: jest.fn().mockImplementation(),
-  refresh: jest.fn().mockImplementation(),
-};
+roleMetadataStorageMock.filterRoleMetadata = jest
+  .fn()
+  .mockImplementation(
+    async (
+      _roleEntityRef: string,
+      _trx: Knex.Knex.Transaction,
+    ): Promise<RoleMetadataDao[]> => {
+      return [
+        {
+          roleEntityRef: 'role:default/old-provider-role',
+          source: 'test',
+          modifiedBy: 'test',
+        },
+        {
+          roleEntityRef: 'role:default/existing-provider-role',
+          source: 'test',
+          modifiedBy: 'test',
+        },
+      ];
+    },
+  );
+roleMetadataStorageMock.findRoleMetadata = jest
+  .fn()
+  .mockImplementation(
+    async (
+      roleEntityRef: string,
+      _trx: Knex.Knex.Transaction,
+    ): Promise<RoleMetadataDao | undefined> => {
+      if (roleEntityRef === 'role:default/old-provider-role') {
+        return {
+          roleEntityRef: 'role:default/old-provider-role',
+          source: 'test',
+          modifiedBy: 'test',
+        };
+      } else if (roleEntityRef === 'role:default/existing-provider-role') {
+        return {
+          roleEntityRef: 'role:default/existing-provider-role',
+          source: 'test',
+          modifiedBy: 'test',
+        };
+      } else if (roleEntityRef === 'role:default/csv-role') {
+        return {
+          roleEntityRef: 'role:default/csv-role',
+          source: 'csv-file',
+          modifiedBy: 'csv-file',
+        };
+      }
+      return undefined;
+    },
+  );
 
 const roleToBeRemoved = ['user:default/old', 'role:default/old-provider-role'];
 const roleMetaToBeRemoved = {
@@ -167,9 +128,11 @@ describe('Connection', () => {
     const stringModel = newModelFromString(MODEL);
     const enf = await createEnforcer(stringModel, adapter, mockLoggerService);
 
-    const knex = Knex.knex({ client: MockClient });
-
-    enforcerDelegate = new EnforcerDelegate(enf, roleMetadataStorageMock, knex);
+    enforcerDelegate = new EnforcerDelegate(
+      enf,
+      roleMetadataStorageMock,
+      mockClientKnex,
+    );
 
     await enforcerDelegate.addGroupingPolicy(
       roleToBeRemoved,
@@ -457,12 +420,10 @@ describe('connectRBACProviders', () => {
     const stringModel = newModelFromString(MODEL);
     const enf = await createEnforcer(stringModel, adapter, mockLoggerService);
 
-    const knex = Knex.knex({ client: MockClient });
-
     const enforcerDelegate = new EnforcerDelegate(
       enf,
       roleMetadataStorageMock,
-      knex,
+      mockClientKnex,
     );
 
     await connectRBACProviders(

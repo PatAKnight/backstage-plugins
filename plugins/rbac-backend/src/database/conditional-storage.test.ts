@@ -5,14 +5,14 @@ import {
 } from '@backstage/backend-test-utils';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 
-import * as Knex from 'knex';
-import { createTracker, MockClient } from 'knex-mock-client';
+import { createTracker } from 'knex-mock-client';
 
 import type {
   PermissionInfo,
   RoleConditionalPolicyDecision,
 } from '@janus-idp/backstage-plugin-rbac-common';
 
+import { mockClientKnex } from '../../__fixtures__/mock-utils';
 import {
   CONDITIONAL_TABLE,
   ConditionalPolicyDecisionDAO,
@@ -285,12 +285,11 @@ describe('DataBaseConditionalStorage', () => {
     );
 
     it('should throw failed to create metadata error, because inserted result is undefined', async () => {
-      const knex = Knex.knex({ client: MockClient });
-      const tracker = createTracker(knex);
+      const tracker = createTracker(mockClientKnex);
       tracker.on.select(CONDITIONAL_TABLE).response(undefined);
       tracker.on.insert(CONDITIONAL_TABLE).response(undefined);
 
-      const db = new DataBaseConditionalStorage(knex);
+      const db = new DataBaseConditionalStorage(mockClientKnex);
 
       await expect(async () => {
         await db.createCondition(condition1);

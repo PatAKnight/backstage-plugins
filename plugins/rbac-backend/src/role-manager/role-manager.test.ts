@@ -7,20 +7,16 @@ import { Config } from '@backstage/config';
 import * as Knex from 'knex';
 import { createTracker, MockClient, Tracker } from 'knex-mock-client';
 
+import {
+  catalogApiMock,
+  mockAuthService,
+  mockLoggerService,
+} from '../../__fixtures__/mock-utils';
 import { BackstageRoleManager } from '../role-manager/role-manager';
 
 describe('BackstageRoleManager', () => {
   const catalogDBClient = Knex.knex({ client: MockClient });
   const rbacDBClient = Knex.knex({ client: MockClient });
-  // TODO: Move to 'catalogServiceMock' from '@backstage/plugin-catalog-node/testUtils'
-  // once '@backstage/plugin-catalog-node' is upgraded
-  const catalogApiMock: any = {
-    getEntities: jest.fn().mockImplementation(),
-  };
-
-  const mockLoggerService = mockServices.logger.mock();
-
-  const mockAuthService = mockServices.auth();
 
   let roleManager: BackstageRoleManager;
   beforeEach(() => {

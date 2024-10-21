@@ -4,9 +4,9 @@ import {
   TestDatabases,
 } from '@backstage/backend-test-utils';
 
-import * as Knex from 'knex';
-import { createTracker, MockClient } from 'knex-mock-client';
+import { createTracker } from 'knex-mock-client';
 
+import { mockClientKnex } from '../../__fixtures__/mock-utils';
 import { migrate } from './migration';
 import {
   DataBaseRoleMetadataStorage,
@@ -166,13 +166,12 @@ describe('role-metadata-db-table', () => {
     );
 
     it('should throw failed to create metadata error, because inserted result is an empty array.', async () => {
-      const knex = Knex.knex({ client: MockClient });
-      const tracker = createTracker(knex);
+      const tracker = createTracker(mockClientKnex);
       tracker.on.select(ROLE_METADATA_TABLE).response(undefined);
       tracker.on.insert(ROLE_METADATA_TABLE).response([]);
 
-      const db = new DataBaseRoleMetadataStorage(knex);
-      const trx = await knex.transaction();
+      const db = new DataBaseRoleMetadataStorage(mockClientKnex);
+      const trx = await mockClientKnex.transaction();
 
       await expect(
         db.createRoleMetadata(
@@ -189,15 +188,14 @@ describe('role-metadata-db-table', () => {
     });
 
     it('should throw failed to create metadata error, because inserted result is undefined.', async () => {
-      const knex = Knex.knex({ client: MockClient });
-      const tracker = createTracker(knex);
+      const tracker = createTracker(mockClientKnex);
       tracker.on.select(ROLE_METADATA_TABLE).response(undefined);
       tracker.on.insert(ROLE_METADATA_TABLE).response(undefined);
 
-      const db = new DataBaseRoleMetadataStorage(knex);
+      const db = new DataBaseRoleMetadataStorage(mockClientKnex);
 
       await expect(async () => {
-        const trx = await knex.transaction();
+        const trx = await mockClientKnex.transaction();
         try {
           await db.createRoleMetadata(
             {
@@ -218,17 +216,16 @@ describe('role-metadata-db-table', () => {
     });
 
     it('should throw an error on insert metadata operation', async () => {
-      const knex = Knex.knex({ client: MockClient });
-      const tracker = createTracker(knex);
+      const tracker = createTracker(mockClientKnex);
       tracker.on.select(ROLE_METADATA_TABLE).response(undefined);
       tracker.on
         .insert(ROLE_METADATA_TABLE)
         .simulateError('connection refused error');
 
-      const db = new DataBaseRoleMetadataStorage(knex);
+      const db = new DataBaseRoleMetadataStorage(mockClientKnex);
 
       await expect(async () => {
-        const trx = await knex.transaction();
+        const trx = await mockClientKnex.transaction();
         try {
           await db.createRoleMetadata(
             {
@@ -398,8 +395,7 @@ describe('role-metadata-db-table', () => {
     );
 
     it('should throw failed to update metadata error, because update result is an empty array.', async () => {
-      const knex = Knex.knex({ client: MockClient });
-      const tracker = createTracker(knex);
+      const tracker = createTracker(mockClientKnex);
       tracker.on.select(ROLE_METADATA_TABLE).response({
         roleEntityRef: 'role:default/some-super-important-role',
         source: 'configuration',
@@ -407,10 +403,10 @@ describe('role-metadata-db-table', () => {
       });
       tracker.on.update(ROLE_METADATA_TABLE).response([]);
 
-      const db = new DataBaseRoleMetadataStorage(knex);
+      const db = new DataBaseRoleMetadataStorage(mockClientKnex);
 
       await expect(async () => {
-        const trx = await knex.transaction();
+        const trx = await mockClientKnex.transaction();
         try {
           await db.updateRoleMetadata(
             {
@@ -432,8 +428,7 @@ describe('role-metadata-db-table', () => {
     });
 
     it('should throw failed to update metadata error, because update result is undefined.', async () => {
-      const knex = Knex.knex({ client: MockClient });
-      const tracker = createTracker(knex);
+      const tracker = createTracker(mockClientKnex);
       tracker.on.select(ROLE_METADATA_TABLE).response({
         roleEntityRef: 'role:default/some-super-important-role',
         source: 'configuration',
@@ -441,10 +436,10 @@ describe('role-metadata-db-table', () => {
       });
       tracker.on.update(ROLE_METADATA_TABLE).response(undefined);
 
-      const db = new DataBaseRoleMetadataStorage(knex);
+      const db = new DataBaseRoleMetadataStorage(mockClientKnex);
 
       await expect(async () => {
-        const trx = await knex.transaction();
+        const trx = await mockClientKnex.transaction();
         try {
           await db.updateRoleMetadata(
             {
@@ -466,8 +461,7 @@ describe('role-metadata-db-table', () => {
     });
 
     it('should throw on insert metadata operation', async () => {
-      const knex = Knex.knex({ client: MockClient });
-      const tracker = createTracker(knex);
+      const tracker = createTracker(mockClientKnex);
       tracker.on.select(ROLE_METADATA_TABLE).response({
         roleEntityRef: 'role:default/some-super-important-role',
         source: 'configuration',
@@ -477,10 +471,10 @@ describe('role-metadata-db-table', () => {
         .update(ROLE_METADATA_TABLE)
         .simulateError('connection refused error');
 
-      const db = new DataBaseRoleMetadataStorage(knex);
+      const db = new DataBaseRoleMetadataStorage(mockClientKnex);
 
       await expect(async () => {
-        const trx = await knex.transaction();
+        const trx = await mockClientKnex.transaction();
         try {
           await db.updateRoleMetadata(
             {
@@ -556,8 +550,7 @@ describe('role-metadata-db-table', () => {
     );
 
     it('should throw an error on delete metadata operation', async () => {
-      const knex = Knex.knex({ client: MockClient });
-      const tracker = createTracker(knex);
+      const tracker = createTracker(mockClientKnex);
       tracker.on.select(ROLE_METADATA_TABLE).response({
         roleEntityRef: 'role:default/some-super-important-role',
         source: 'configuration',
@@ -567,10 +560,10 @@ describe('role-metadata-db-table', () => {
         .delete(ROLE_METADATA_TABLE)
         .simulateError('connection refused error');
 
-      const db = new DataBaseRoleMetadataStorage(knex);
+      const db = new DataBaseRoleMetadataStorage(mockClientKnex);
 
       await expect(async () => {
-        const trx = await knex.transaction();
+        const trx = await mockClientKnex.transaction();
         try {
           await db.removeRoleMetadata(
             'role:default/some-super-important-role',

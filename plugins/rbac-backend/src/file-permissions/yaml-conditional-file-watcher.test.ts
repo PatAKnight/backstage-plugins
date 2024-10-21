@@ -1,39 +1,24 @@
-import { mockServices } from '@backstage/backend-test-utils';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { MetadataResponse } from '@backstage/plugin-permission-node';
 
 import { resolve } from 'path';
 
+import {
+  auditLoggerMock,
+  conditionalStorageMock,
+  mockAuthService,
+  mockLoggerService,
+  pluginMetadataCollectorMock,
+  roleEventEmitterMock,
+  roleMetadataStorageMock,
+} from '../../__fixtures__/mock-utils';
 import { ConditionEvents } from '../audit-log/audit-logger';
 import { DataBaseConditionalStorage } from '../database/conditional-storage';
-import {
-  RoleMetadataDao,
-  RoleMetadataStorage,
-} from '../database/role-metadata';
-import { RoleEventEmitter, RoleEvents } from '../service/enforcer-delegate';
+import { RoleMetadataDao } from '../database/role-metadata';
 import { PluginPermissionMetadataCollector } from '../service/plugin-endpoints';
 import { YamlConditinalPoliciesFileWatcher } from './yaml-conditional-file-watcher'; // Adjust the import path as necessary
 
-const mockLoggerService = mockServices.logger.mock();
-
 let loggerWarnSpy: jest.SpyInstance;
-
-const conditionalStorageMock: Partial<DataBaseConditionalStorage> = {
-  filterConditions: jest.fn().mockImplementation(),
-  createCondition: jest.fn().mockImplementation(),
-  checkConflictedConditions: jest.fn().mockImplementation(),
-  getCondition: jest.fn().mockImplementation(),
-  deleteCondition: jest.fn().mockImplementation(),
-  updateCondition: jest.fn().mockImplementation(),
-};
-
-const auditLoggerMock = {
-  getActorId: jest.fn().mockImplementation(),
-  createAuditLogDetails: jest.fn().mockImplementation(),
-  auditLog: jest.fn().mockImplementation(),
-};
-
-const mockAuthService = mockServices.auth();
 
 const testPluginMetadataResp: MetadataResponse = {
   permissions: [
@@ -143,26 +128,9 @@ const conditionToRemove = {
   },
 };
 
-const pluginMetadataCollectorMock: Partial<PluginPermissionMetadataCollector> =
-  {
-    getPluginConditionRules: jest.fn().mockImplementation(),
-    getPluginPolicies: jest.fn().mockImplementation(),
-    getMetadataByPluginId: jest
-      .fn()
-      .mockImplementation(async () => testPluginMetadataResp),
-  };
-
-const roleMetadataStorageMock: RoleMetadataStorage = {
-  filterRoleMetadata: jest.fn().mockImplementation(() => []),
-  findRoleMetadata: jest.fn().mockImplementation(),
-  createRoleMetadata: jest.fn().mockImplementation(),
-  updateRoleMetadata: jest.fn().mockImplementation(),
-  removeRoleMetadata: jest.fn().mockImplementation(),
-};
-
-const roleEventEmitterMock: RoleEventEmitter<RoleEvents> = {
-  on: jest.fn().mockImplementation(),
-};
+pluginMetadataCollectorMock.getMetadataByPluginId = jest
+  .fn()
+  .mockImplementation(async () => testPluginMetadataResp);
 
 describe('YamlConditionalFileWatcher', () => {
   let csvFileName: string;

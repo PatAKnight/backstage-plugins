@@ -1,3 +1,7 @@
+import {
+  auditLoggerMock,
+  enforcerDelegateMock,
+} from '../__fixtures__/mock-utils';
 import { ADMIN_ROLE_AUTHOR } from './admin-permissions/admin-creation';
 import { RoleMetadataDao } from './database/role-metadata';
 import {
@@ -16,12 +20,6 @@ import {
 import { EnforcerDelegate } from './service/enforcer-delegate';
 
 const modifiedBy = 'user:default/some-user';
-
-const auditLoggerMock = {
-  getActorId: jest.fn().mockImplementation(),
-  createAuditLogDetails: jest.fn().mockImplementation(),
-  auditLog: jest.fn().mockImplementation(),
-};
 
 describe('helper.ts', () => {
   describe('policyToString', () => {
@@ -109,13 +107,12 @@ describe('helper.ts', () => {
   });
 
   describe('removeTheDifference', () => {
-    const mockEnforcerDelegate: Partial<EnforcerDelegate> = {
-      removeGroupingPolicies: jest.fn().mockImplementation(),
-      getFilteredGroupingPolicy: jest.fn().mockReturnValue([]),
-    };
+    enforcerDelegateMock.getFilteredGroupingPolicy = jest
+      .fn()
+      .mockReturnValue([]);
 
     beforeEach(() => {
-      (mockEnforcerDelegate.removeGroupingPolicies as jest.Mock).mockClear();
+      (enforcerDelegateMock.removeGroupingPolicies as jest.Mock).mockClear();
       auditLoggerMock.auditLog.mockReset();
     });
 
@@ -134,12 +131,12 @@ describe('helper.ts', () => {
         addedGroup,
         source,
         roleName,
-        mockEnforcerDelegate as EnforcerDelegate,
+        enforcerDelegateMock as EnforcerDelegate,
         auditLoggerMock,
         ADMIN_ROLE_AUTHOR,
       );
 
-      expect(mockEnforcerDelegate.removeGroupingPolicies).toHaveBeenCalledWith(
+      expect(enforcerDelegateMock.removeGroupingPolicies).toHaveBeenCalledWith(
         [['user:default/admin', roleName]],
         {
           modifiedBy: ADMIN_ROLE_AUTHOR,
@@ -161,13 +158,13 @@ describe('helper.ts', () => {
         addedGroup,
         source,
         roleName,
-        mockEnforcerDelegate as EnforcerDelegate,
+        enforcerDelegateMock as EnforcerDelegate,
         auditLoggerMock,
         ADMIN_ROLE_AUTHOR,
       );
 
       expect(
-        mockEnforcerDelegate.removeGroupingPolicies,
+        enforcerDelegateMock.removeGroupingPolicies,
       ).not.toHaveBeenCalled();
     });
 
@@ -182,13 +179,13 @@ describe('helper.ts', () => {
         addedGroup,
         source,
         roleName,
-        mockEnforcerDelegate as EnforcerDelegate,
+        enforcerDelegateMock as EnforcerDelegate,
         auditLoggerMock,
         ADMIN_ROLE_AUTHOR,
       );
 
       expect(
-        mockEnforcerDelegate.removeGroupingPolicies,
+        enforcerDelegateMock.removeGroupingPolicies,
       ).not.toHaveBeenCalled();
     });
   });

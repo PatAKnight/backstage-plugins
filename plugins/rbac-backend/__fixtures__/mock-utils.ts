@@ -1,4 +1,5 @@
 import { mockCredentials, mockServices } from '@backstage/backend-test-utils';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 
 import type { Enforcer } from 'casbin';
 import * as Knex from 'knex';
@@ -112,9 +113,31 @@ export const providerMock: RBACProvider = {
 
 export const mockClientKnex = Knex.knex({ client: MockClient });
 
-export const mockHttpAuth = mockServices.httpAuth();
+export const authorizeMock = jest.fn().mockImplementation(async () => [
+  {
+    result: AuthorizeResult.ALLOW,
+  },
+]);
+
+export const authorizeConditionalMock = jest
+  .fn()
+  .mockImplementation(async () => [
+    {
+      result: AuthorizeResult.ALLOW,
+    },
+  ]);
+
+export const permissionEvaluatorMock = {
+  authorize: authorizeMock,
+  authorizeConditional: authorizeConditionalMock,
+};
+
+export const mockHttpAuth = mockServices.httpAuth({
+  pluginId: 'permission',
+  defaultCredentials: mockCredentials.user('user:default/guest'),
+});
 export const mockAuthService = mockServices.auth();
-export const credentials = mockCredentials.user();
+export const mockUserCredentials = mockCredentials.user('user:default/guest');
 export const mockLoggerService = mockServices.logger.mock();
 export const mockUserInfoService = mockServices.userInfo();
 export const mockDiscovery = mockServices.discovery.mock();
@@ -123,3 +146,5 @@ export const csvPermFile = resolve(
   __dirname,
   './../__fixtures__/data/valid-csv/rbac-policy.csv',
 );
+
+export const modifiedBy = 'user:default/some-admin';

@@ -4,45 +4,18 @@ import { newEnforcer, newModelFromString } from 'casbin';
 import * as Knex from 'knex';
 import { MockClient } from 'knex-mock-client';
 
-import { CasbinDBAdapterFactory } from '../database/casbin-adapter-factory';
 import {
-  RoleMetadataDao,
-  RoleMetadataStorage,
-} from '../database/role-metadata';
+  catalogApiMock,
+  mockAuthService,
+  mockClientKnex,
+  modifiedBy,
+  roleMetadataStorageMock,
+} from '../../__fixtures__/mock-utils';
+import { CasbinDBAdapterFactory } from '../database/casbin-adapter-factory';
+import { RoleMetadataDao } from '../database/role-metadata';
 import { BackstageRoleManager } from '../role-manager/role-manager';
 import { EnforcerDelegate } from './enforcer-delegate';
 import { MODEL } from './permission-model';
-
-// TODO: Move to 'catalogServiceMock' from '@backstage/plugin-catalog-node/testUtils'
-// once '@backstage/plugin-catalog-node' is upgraded
-const catalogApiMock = {
-  getEntityAncestors: jest.fn().mockImplementation(),
-  getLocationById: jest.fn().mockImplementation(),
-  getEntities: jest.fn().mockImplementation(),
-  getEntitiesByRefs: jest.fn().mockImplementation(),
-  queryEntities: jest.fn().mockImplementation(),
-  getEntityByRef: jest.fn().mockImplementation(),
-  refreshEntity: jest.fn().mockImplementation(),
-  getEntityFacets: jest.fn().mockImplementation(),
-  addLocation: jest.fn().mockImplementation(),
-  getLocationByRef: jest.fn().mockImplementation(),
-  removeLocationById: jest.fn().mockImplementation(),
-  removeEntityByUid: jest.fn().mockImplementation(),
-  validateEntity: jest.fn().mockImplementation(),
-  getLocationByEntity: jest.fn().mockImplementation(),
-};
-
-const roleMetadataStorageMock: RoleMetadataStorage = {
-  filterRoleMetadata: jest.fn().mockImplementation(() => []),
-  findRoleMetadata: jest.fn().mockImplementation(),
-  createRoleMetadata: jest.fn().mockImplementation(),
-  updateRoleMetadata: jest.fn().mockImplementation(),
-  removeRoleMetadata: jest.fn().mockImplementation(),
-};
-
-const mockClientKnex = Knex.knex({ client: MockClient });
-
-const mockAuthService = mockServices.auth();
 
 const config = mockServices.rootConfig({
   data: {
@@ -105,8 +78,6 @@ describe('EnforcerDelegate', () => {
     [rules: string[][]],
     any
   >;
-
-  const modifiedBy = 'user:default/some-admin';
 
   beforeEach(() => {
     (roleMetadataStorageMock.createRoleMetadata as jest.Mock).mockReset();

@@ -5,10 +5,8 @@ import type {
   Source,
 } from '@janus-idp/backstage-plugin-rbac-common';
 
-import {
-  RoleMetadataDao,
-  RoleMetadataStorage,
-} from '../database/role-metadata';
+import { roleMetadataStorageMock } from '../../__fixtures__/mock-utils';
+import { RoleMetadataDao } from '../database/role-metadata';
 import {
   validateEntityReference,
   validateGroupingPolicy,
@@ -18,27 +16,6 @@ import {
 } from './policies-validation';
 
 const modifiedBy = 'user:default/some-admin';
-
-const roleMetadataStorageMock: RoleMetadataStorage = {
-  filterRoleMetadata: jest.fn().mockImplementation(() => []),
-  findRoleMetadata: jest
-    .fn()
-    .mockImplementation(
-      async (
-        _roleEntityRef: string,
-        _trx: Knex.Knex.Transaction,
-      ): Promise<RoleMetadataDao> => {
-        return {
-          roleEntityRef: 'role:default/catalog-reader',
-          source: 'rest',
-          modifiedBy,
-        };
-      },
-    ),
-  createRoleMetadata: jest.fn().mockImplementation(),
-  updateRoleMetadata: jest.fn().mockImplementation(),
-  removeRoleMetadata: jest.fn().mockImplementation(),
-};
 
 describe('rest data validation', () => {
   describe('validate entity referenced policy', () => {
@@ -335,6 +312,21 @@ describe('rest data validation', () => {
       source: 'rest',
       modifiedBy,
     };
+
+    roleMetadataStorageMock.findRoleMetadata = jest
+      .fn()
+      .mockImplementation(
+        async (
+          _roleEntityRef: string,
+          _trx: Knex.Knex.Transaction,
+        ): Promise<RoleMetadataDao> => {
+          return {
+            roleEntityRef: 'role:default/catalog-reader',
+            source: 'rest',
+            modifiedBy,
+          };
+        },
+      );
 
     it('should not return an error during validation', async () => {
       const err = await validateGroupingPolicy(

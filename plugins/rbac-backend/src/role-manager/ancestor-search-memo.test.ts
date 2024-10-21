@@ -1,12 +1,10 @@
-import { mockServices } from '@backstage/backend-test-utils';
 import type { Entity, GroupEntity } from '@backstage/catalog-model';
 
 import * as Knex from 'knex';
 import { createTracker, MockClient, Tracker } from 'knex-mock-client';
 
+import { catalogApiMock, mockAuthService } from '../../__fixtures__/mock-utils';
 import { AncestorSearchMemo, Relation } from './ancestor-search-memo';
-
-const mockAuthService = mockServices.auth();
 
 describe('ancestor-search-memo', () => {
   const userRelations = [
@@ -54,17 +52,13 @@ describe('ancestor-search-memo', () => {
 
   const testUserGroups = [createGroupEntity('team-a', 'team-b', [], ['adam'])];
 
-  // TODO: Move to 'catalogServiceMock' from '@backstage/plugin-catalog-node/testUtils'
-  // once '@backstage/plugin-catalog-node' is upgraded
-  const catalogApiMock: any = {
-    getEntities: jest.fn().mockImplementation((arg: any) => {
-      const hasMember = arg.filter['relations.hasMember'];
-      if (hasMember && hasMember === 'user:default/adam') {
-        return { items: testUserGroups };
-      }
-      return { items: testGroups };
-    }),
-  };
+  catalogApiMock.getEntities = jest.fn().mockImplementation((arg: any) => {
+    const hasMember = arg.filter['relations.hasMember'];
+    if (hasMember && hasMember === 'user:default/adam') {
+      return { items: testUserGroups };
+    }
+    return { items: testGroups };
+  });
 
   const catalogDBClient = Knex.knex({ client: MockClient });
 

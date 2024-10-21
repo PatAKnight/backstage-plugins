@@ -25,9 +25,19 @@ import type { RoleMetadata } from '@janus-idp/backstage-plugin-rbac-common';
 
 import { resolve } from 'path';
 
+import {
+  auditLoggerMock,
+  catalogApiMock,
+  conditionalStorageMock,
+  csvPermFile,
+  mockAuthService,
+  mockClientKnex,
+  modifiedBy,
+  pluginMetadataCollectorMock,
+  roleMetadataStorageMock,
+} from '../../__fixtures__/mock-utils';
 import { ADMIN_ROLE_NAME } from '../admin-permissions/admin-creation';
 import { CasbinDBAdapterFactory } from '../database/casbin-adapter-factory';
-import { ConditionalStorage } from '../database/conditional-storage';
 import {
   RoleMetadataDao,
   RoleMetadataStorage,
@@ -40,74 +50,19 @@ import { PluginPermissionMetadataCollector } from './plugin-endpoints';
 
 type PermissionAction = 'create' | 'read' | 'update' | 'delete';
 
-// TODO: Move to 'catalogServiceMock' from '@backstage/plugin-catalog-node/testUtils'
-// once '@backstage/plugin-catalog-node' is upgraded
-const catalogApiMock = {
-  getEntityAncestors: jest.fn().mockImplementation(),
-  getLocationById: jest.fn().mockImplementation(),
-  getEntities: jest.fn().mockImplementation(),
-  getEntitiesByRefs: jest.fn().mockImplementation(),
-  queryEntities: jest.fn().mockImplementation(),
-  getEntityByRef: jest.fn().mockImplementation(),
-  refreshEntity: jest.fn().mockImplementation(),
-  getEntityFacets: jest.fn().mockImplementation(),
-  addLocation: jest.fn().mockImplementation(),
-  getLocationByRef: jest.fn().mockImplementation(),
-  removeLocationById: jest.fn().mockImplementation(),
-  removeEntityByUid: jest.fn().mockImplementation(),
-  validateEntity: jest.fn().mockImplementation(),
-  getLocationByEntity: jest.fn().mockImplementation(),
-};
-
-const conditionalStorageMock: ConditionalStorage = {
-  filterConditions: jest.fn().mockImplementation(() => []),
-  createCondition: jest.fn().mockImplementation(),
-  checkConflictedConditions: jest.fn().mockImplementation(),
-  getCondition: jest.fn().mockImplementation(),
-  deleteCondition: jest.fn().mockImplementation(),
-  updateCondition: jest.fn().mockImplementation(),
-};
-
-const roleMetadataStorageMock: RoleMetadataStorage = {
-  filterRoleMetadata: jest.fn().mockImplementation(() => []),
-  findRoleMetadata: jest
-    .fn()
-    .mockImplementation(
-      async (
-        _roleEntityRef: string,
-        _trx: Knex.Knex.Transaction,
-      ): Promise<RoleMetadata> => {
-        return { source: 'csv-file' };
-      },
-    ),
-  createRoleMetadata: jest.fn().mockImplementation(),
-  updateRoleMetadata: jest.fn().mockImplementation(),
-  removeRoleMetadata: jest.fn().mockImplementation(),
-};
-
-const csvPermFile = resolve(
-  __dirname,
-  '../../__fixtures__/data/valid-csv/rbac-policy.csv',
-);
-
-const mockClientKnex = Knex.knex({ client: MockClient });
-
-const mockAuthService = mockServices.auth();
-
-const auditLoggerMock = {
-  getActorId: jest.fn().mockImplementation(),
-  createAuditLogDetails: jest.fn().mockImplementation(),
-  auditLog: jest.fn().mockImplementation(),
-};
-
-const pluginMetadataCollectorMock: Partial<PluginPermissionMetadataCollector> =
-  {
-    getPluginConditionRules: jest.fn().mockImplementation(),
-    getPluginPolicies: jest.fn().mockImplementation(),
-    getMetadataByPluginId: jest.fn().mockImplementation(),
-  };
-
-const modifiedBy = 'user:default/some-admin';
+roleMetadataStorageMock.filterRoleMetadata = jest
+  .fn()
+  .mockImplementation(() => []);
+roleMetadataStorageMock.findRoleMetadata = jest
+  .fn()
+  .mockImplementation(
+    async (
+      _roleEntityRef: string,
+      _trx: Knex.Knex.Transaction,
+    ): Promise<RoleMetadata> => {
+      return { source: 'csv-file' };
+    },
+  );
 
 describe('RBACPermissionPolicy Tests', () => {
   beforeEach(() => {
@@ -585,25 +540,19 @@ describe('RBACPermissionPolicy Tests', () => {
     let policy: RBACPermissionPolicy;
     let enfDelegate: EnforcerDelegate;
 
-    const roleMetadataStorageTest: RoleMetadataStorage = {
-      filterRoleMetadata: jest.fn().mockImplementation(() => []),
-      findRoleMetadata: jest
-        .fn()
-        .mockImplementation(
-          async (
-            roleEntityRef: string,
-            _trx: Knex.Knex.Transaction,
-          ): Promise<RoleMetadata> => {
-            if (roleEntityRef.includes('rbac_admin')) {
-              return { source: 'configuration' };
-            }
-            return { source: 'csv-file' };
-          },
-        ),
-      createRoleMetadata: jest.fn().mockImplementation(),
-      updateRoleMetadata: jest.fn().mockImplementation(),
-      removeRoleMetadata: jest.fn().mockImplementation(),
-    };
+    roleMetadataStorageMock.findRoleMetadata = jest
+      .fn()
+      .mockImplementation(
+        async (
+          roleEntityRef: string,
+          _trx: Knex.Knex.Transaction,
+        ): Promise<RoleMetadata> => {
+          if (roleEntityRef.includes('rbac_admin')) {
+            return { source: 'configuration' };
+          }
+          return { source: 'csv-file' };
+        },
+      );
 
     beforeEach(async () => {
       const basicAndResourcePermissions = resolve(
@@ -617,7 +566,7 @@ describe('RBACPermissionPolicy Tests', () => {
       policy = await newPermissionPolicy(
         config,
         enfDelegate,
-        roleMetadataStorageTest,
+        roleMetadataStorageMock,
       );
 
       catalogApiMock.getEntities.mockReturnValue({ items: [] });
@@ -858,26 +807,20 @@ describe('RBACPermissionPolicy Tests', () => {
   describe('Policy checks from config file', () => {
     let policy: RBACPermissionPolicy;
     let enfDelegate: EnforcerDelegate;
-    const roleMetadataStorageTest: RoleMetadataStorage = {
-      filterRoleMetadata: jest.fn().mockImplementation(() => []),
-      findRoleMetadata: jest
-        .fn()
-        .mockImplementation(
-          async (
-            _roleEntityRef: string,
-            _trx: Knex.Knex.Transaction,
-          ): Promise<RoleMetadataDao> => {
-            return {
-              roleEntityRef: 'role:default/catalog-writer',
-              source: 'legacy',
-              modifiedBy,
-            };
-          },
-        ),
-      createRoleMetadata: jest.fn().mockImplementation(),
-      updateRoleMetadata: jest.fn().mockImplementation(),
-      removeRoleMetadata: jest.fn().mockImplementation(),
-    };
+    roleMetadataStorageMock.findRoleMetadata = jest
+      .fn()
+      .mockImplementation(
+        async (
+          _roleEntityRef: string,
+          _trx: Knex.Knex.Transaction,
+        ): Promise<RoleMetadataDao> => {
+          return {
+            roleEntityRef: 'role:default/catalog-writer',
+            source: 'legacy',
+            modifiedBy,
+          };
+        },
+      );
 
     const adminRole = 'role:default/rbac_admin';
     const groupPolicy = [
@@ -931,7 +874,7 @@ describe('RBACPermissionPolicy Tests', () => {
       policy = await newPermissionPolicy(
         config,
         enfDelegate,
-        roleMetadataStorageTest,
+        roleMetadataStorageMock,
       );
     });
 
@@ -1003,26 +946,21 @@ describe('RBACPermissionPolicy Tests', () => {
 
 // Notice: There is corner case, when "resourced" permission policy can be defined not by resource type, but by name.
 describe('Policy checks for resourced permissions defined by name', () => {
-  const roleMetadataStorageTest: RoleMetadataStorage = {
-    filterRoleMetadata: jest.fn().mockImplementation(() => []),
-    findRoleMetadata: jest
-      .fn()
-      .mockImplementation(
-        async (
-          _roleEntityRef: string,
-          _trx: Knex.Knex.Transaction,
-        ): Promise<RoleMetadataDao> => {
-          return {
-            roleEntityRef: 'role:default/catalog-writer',
-            source: 'legacy',
-            modifiedBy,
-          };
-        },
-      ),
-    createRoleMetadata: jest.fn().mockImplementation(),
-    updateRoleMetadata: jest.fn().mockImplementation(),
-    removeRoleMetadata: jest.fn().mockImplementation(),
-  };
+  roleMetadataStorageMock.findRoleMetadata = jest
+    .fn()
+    .mockImplementation(
+      async (
+        _roleEntityRef: string,
+        _trx: Knex.Knex.Transaction,
+      ): Promise<RoleMetadataDao> => {
+        return {
+          roleEntityRef: 'role:default/catalog-writer',
+          source: 'legacy',
+          modifiedBy,
+        };
+      },
+    );
+
   let enfDelegate: EnforcerDelegate;
   let policy: RBACPermissionPolicy;
 
@@ -1033,7 +971,7 @@ describe('Policy checks for resourced permissions defined by name', () => {
     policy = await newPermissionPolicy(
       config,
       enfDelegate,
-      roleMetadataStorageTest,
+      roleMetadataStorageMock,
     );
   });
 

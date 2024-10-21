@@ -2,26 +2,20 @@ import { mockServices } from '@backstage/backend-test-utils';
 
 import type { Adapter, Enforcer } from 'casbin';
 import type { Router } from 'express';
-import type TypeORMAdapter from 'typeorm-adapter';
 
-import type {
-  PluginIdProvider,
-  RBACProvider,
-} from '@janus-idp/backstage-plugin-rbac-node';
+import type { PluginIdProvider } from '@janus-idp/backstage-plugin-rbac-node';
 
+import {
+  dataBaseAdapterFactoryMock,
+  enforcerMock,
+  pluginMetadataCollectorMock,
+  providerMock,
+} from '../../__fixtures__/mock-utils';
 import { CasbinDBAdapterFactory } from '../database/casbin-adapter-factory';
 import { RBACPermissionPolicy } from './permission-policy';
 import { PluginPermissionMetadataCollector } from './plugin-endpoints';
 import { PoliciesServer } from './policies-rest-api';
 import { PolicyBuilder } from './policy-builder';
-
-const enforcerMock: Partial<Enforcer> = {
-  loadPolicy: jest.fn().mockImplementation(async () => {}),
-  enableAutoSave: jest.fn().mockImplementation(() => {}),
-  setRoleManager: jest.fn().mockImplementation(() => {}),
-  enableAutoBuildRoleLinks: jest.fn().mockImplementation(() => {}),
-  buildRoleLinks: jest.fn().mockImplementation(() => {}),
-};
 
 jest.mock('casbin', () => {
   const actualCasbin = jest.requireActual('casbin');
@@ -36,12 +30,6 @@ jest.mock('casbin', () => {
   };
 });
 
-const dataBaseAdapterFactoryMock: Partial<CasbinDBAdapterFactory> = {
-  createAdapter: jest.fn((): Promise<TypeORMAdapter> => {
-    return Promise.resolve({} as TypeORMAdapter);
-  }),
-};
-
 jest.mock('../database/casbin-adapter-factory', () => {
   return {
     CasbinDBAdapterFactory: jest.fn((): Partial<CasbinDBAdapterFactory> => {
@@ -49,13 +37,6 @@ jest.mock('../database/casbin-adapter-factory', () => {
     }),
   };
 });
-
-const pluginMetadataCollectorMock: Partial<PluginPermissionMetadataCollector> =
-  {
-    getPluginConditionRules: jest.fn().mockImplementation(),
-    getPluginPolicies: jest.fn().mockImplementation(),
-    getMetadataByPluginId: jest.fn().mockImplementation(),
-  };
 
 jest.mock('./plugin-endpoints', () => {
   return {
@@ -87,12 +68,6 @@ jest.mock('./permission-policy', () => {
     },
   };
 });
-
-const providerMock: RBACProvider = {
-  getProviderName: jest.fn().mockImplementation(),
-  connect: jest.fn().mockImplementation(),
-  refresh: jest.fn().mockImplementation(),
-};
 
 describe('PolicyBuilder', () => {
   const backendPluginIDsProviderMock = {
